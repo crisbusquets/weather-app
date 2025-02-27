@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MS-DOS Weather</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #aaa;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 2px solid #aaa;
+            padding: 10px;
+        }
+        
+        .title-bar {
+            background-color: #0000aa;
+            color: #fff;
+            padding: 2px 5px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .content {
+            padding: 10px;
+        }
+        
+        #get-location-btn {
+            background-color: #aaa;
+            color: #000;
+            border: 2px outset #ddd;
+            font-family: 'Courier New', monospace;
+            padding: 2px 5px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        
+        #get-location-btn:active {
+            border-style: inset;
+        }
+        
+        .weather-data {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .prompt {
+            color: #0f0;
+        }
+        
+        .loading {
+            color: #ff0;
+        }
+        
+        .error {
+            color: #f00;
+        }
+        
+        .weather-display {
+            margin-top: 15px;
+        }
+        
+        .weather-row {
+            display: flex;
+            margin-bottom: 5px;
+        }
+        
+        .label {
+            min-width: 140px;
+            color: #0f0;
+        }
+        
+        .value {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title-bar">
+            <span>MS-DOS WEATHER.EXE</span>
+            <span>[X]</span>
+        </div>
+        
+        <div class="content">
+            <div id="intro">
+                <span class="prompt">C:\WEATHER></span> Welcome to MS-DOS Weather System v1.0<br>
+                <span class="prompt">C:\WEATHER></span> This program requires geolocation access<br>
+                <span class="prompt">C:\WEATHER></span> Press the button below to start...<br><br>
+                <button id="get-location-btn">EXECUTE WEATHER.EXE</button>
+            </div>
+            
+            <div id="loading" style="display: none;">
+                <span class="loading">C:\WEATHER> Accessing geolocation...</span><br>
+                <span class="loading">C:\WEATHER> Please wait...</span><br>
+            </div>
+            
+            <div id="error" style="display: none;">
+                <span class="error">C:\WEATHER> ERROR: Unable to access geolocation</span><br>
+                <span class="error">C:\WEATHER> Please check browser permissions and try again</span><br>
+            </div>
+            
+            <div id="weather-data" class="weather-data">
+                <span class="prompt">C:\WEATHER> Location detected</span><br>
+                <span class="prompt">C:\WEATHER> Connecting to OpenWeather API...</span><br>
+                <span class="prompt">C:\WEATHER> Retrieving weather data...</span><br>
+                <span class="prompt">C:\WEATHER> Data received successfully:</span><br><br>
+                
+                <div class="weather-display">
+                    <div class="weather-row">
+                        <span class="label">LOCATION:</span>
+                        <span class="value" id="location">Loading...</span>
+                    </div>
+                    <div class="weather-row">
+                        <span class="label">TEMPERATURE:</span>
+                        <span class="value" id="temperature">Loading...</span>
+                    </div>
+                    <div class="weather-row">
+                        <span class="label">FEELS LIKE:</span>
+                        <span class="value" id="feels-like">Loading...</span>
+                    </div>
+                    <div class="weather-row">
+                        <span class="label">CONDITION:</span>
+                        <span class="value" id="condition">Loading...</span>
+                    </div>
+                    <div class="weather-row">
+                        <span class="label">HUMIDITY:</span>
+                        <span class="value" id="humidity">Loading...</span>
+                    </div>
+                    <div class="weather-row">
+                        <span class="label">WIND SPEED:</span>
+                        <span class="value" id="wind">Loading...</span>
+                    </div>
+                    <div class="weather-row">
+                        <span class="label">LAST UPDATE:</span>
+                        <span class="value" id="last-update">Loading...</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <span class="prompt">C:\WEATHER></span> <span class="blink">_</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Key for OpenWeather (you'll need to replace this with your own)
+        const apiKey = '5645412351c6184247ad5eabc4fe9344';
+        
+        // Get DOM elements
+        const getLocationBtn = document.getElementById('get-location-btn');
+        const introSection = document.getElementById('intro');
+        const loadingSection = document.getElementById('loading');
+        const errorSection = document.getElementById('error');
+        const weatherDataSection = document.getElementById('weather-data');
+        
+        // Weather data elements
+        const locationEl = document.getElementById('location');
+        const temperatureEl = document.getElementById('temperature');
+        const feelsLikeEl = document.getElementById('feels-like');
+        const conditionEl = document.getElementById('condition');
+        const humidityEl = document.getElementById('humidity');
+        const windEl = document.getElementById('wind');
+        const lastUpdateEl = document.getElementById('last-update');
+        
+        // Add event listener to the button
+        getLocationBtn.addEventListener('click', getWeatherData);
+        
+        function getWeatherData() {
+            // Hide intro and error sections, show loading
+            introSection.style.display = 'none';
+            errorSection.style.display = 'none';
+            loadingSection.style.display = 'block';
+            
+            // Check if geolocation is supported by the browser
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(fetchWeather, showError);
+            } else {
+                showError({ code: 0, message: 'Geolocation is not supported by this browser' });
+            }
+        }
+        
+        function fetchWeather(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            
+            // Construct the API URL
+            const apiUrl = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely,hourly,alerts&units=metric&appid=${apiKey}`;
+            
+            // Fetch city name using reverse geocoding
+            const geocodeUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${apiKey}`;
+            
+            // First get the location name
+            fetch(geocodeUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(geoData => {
+                    const placeName = geoData[0].name;
+                    const country = geoData[0].country;
+                    locationEl.textContent = `${placeName}, ${country}`;
+                    
+                    // Now get the weather data
+                    return fetch(apiUrl);
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Hide loading, show weather data
+                    loadingSection.style.display = 'none';
+                    weatherDataSection.style.display = 'block';
+                    
+                    // Display the weather data
+                    const current = data.current;
+                    
+                    temperatureEl.textContent = `${Math.round(current.temp)}°C`;
+                    feelsLikeEl.textContent = `${Math.round(current.feels_like)}°C`;
+                    conditionEl.textContent = current.weather[0].description.toUpperCase();
+                    humidityEl.textContent = `${current.humidity}%`;
+                    windEl.textContent = `${current.wind_speed} m/s`;
+                    
+                    const date = new Date(current.dt * 1000);
+                    lastUpdateEl.textContent = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                })
+                .catch(error => {
+                    console.error('Error fetching weather data:', error);
+                    showError({ code: 999, message: 'Error fetching weather data' });
+                });
+        }
+        
+        function showError(error) {
+            loadingSection.style.display = 'none';
+            errorSection.style.display = 'block';
+            console.error('Geolocation error:', error);
+        }
+    </script>
+</body>
+</html>
